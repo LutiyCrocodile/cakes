@@ -1,8 +1,11 @@
 import datetime
 from fileinput import filename
+from logging import exception
 
 from PyQt6 import QtWidgets, QtGui, QtCore
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QIODevice
+from PyQt6.QtWidgets import QMessageBox
+
 from db_helper import db
 
 import sys
@@ -85,26 +88,33 @@ class MainWin(QtWidgets.QWidget):
                 scroll.setWidget(scroll_frame)
 
                 self.login_btn = QtWidgets.QPushButton("Войти")
+                self.lbl_main = QtWidgets.QLabel("Магазин тортов")
+                self.lay_for_main_lbl = QtWidgets.QHBoxLayout()
+                self.lay_for_main_lbl.addWidget(self.lbl_main)
                 self.login_btn.setStyleSheet(
                     "QPushButton { border-radius: 10px; background-color: #dfdfdf; border: 1px solid #333; font-size:16px; padding:5px;} "
                     "QPushButton:hover {background-color: #d3d3d3} "
                     "QPushButton:pressed {background-color: #f3f3f3}")
                 self.login_btn_lay = QtWidgets.QHBoxLayout()
+                self.main_up_lay = QtWidgets.QHBoxLayout()
+                self.main_up_lay.addLayout(self.lay_for_main_lbl)
+                self.main_up_lay.addLayout(self.login_btn_lay)
                 self.login_btn_lay.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
                 self.login_btn_lay.addWidget(self.login_btn)
                 self.login_btn.clicked.connect(self.login)
 
-                self.page_lay.addLayout(self.login_btn_lay)
+                self.page_lay.addLayout(self.main_up_lay)
 
                 for j, data in enumerate(self.data_cakes[5*i:5*i+5]):
                     lbl = QtWidgets.QLabel()
                     lay_for_cake = QtWidgets.QHBoxLayout()
                     pix = QtGui.QPixmap()
                     pix.loadFromData(self.data_cakes[i*5+j]["photo"])
-                    lbl.setPixmap(pix.scaled(100, 100))
+                    lbl.setPixmap(pix.scaled(250, 250))
                     lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                     lay_for_cake.addWidget(lbl)
                     btn_zakaz = QtWidgets.QPushButton("Заказать")
+                    btn_zakaz.clicked.connect(self.show_message)
                     btn_zakaz.setStyleSheet("QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
                                             "QPushButton:hover {background-color: #d3d3d3} "
                                             "QPushButton:pressed {background-color: #f3f3f3}")
@@ -150,6 +160,7 @@ class MainWin(QtWidgets.QWidget):
 
     def login(self):
         self.dialog = QtWidgets.QDialog()
+        # self.dialog.setHidden(False)
         self.dialog.setWindowIcon(self.icon)
         self.dialog.setWindowTitle("Войти")
         self.dialog.resize(300, 200)
@@ -163,6 +174,7 @@ class MainWin(QtWidgets.QWidget):
         btn_enter = QtWidgets.QPushButton("Войти")
         btn_enter.clicked.connect(self.enter)
         btn_register = QtWidgets.QPushButton("Зарегистрироваться")
+        btn_register.clicked.connect(self.register)
         btn_enter.setStyleSheet(
             "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
             "QPushButton:hover {background-color: #d3d3d3} "
@@ -183,16 +195,143 @@ class MainWin(QtWidgets.QWidget):
         self.dialog.setLayout(dialog_lay)
         self.dialog.exec()
 
+
+    def register(self):
+        self.reg_win = RegUser()
+        self.reg_win.show()
+        self.dialog.close()
+
+
     def enter(self):
-        client = db.query(f"SELECT * FROM clients WHERE login = '{self.line_edit_login.text()}' and password = '{self.line_edit_password.text()}'")
-        if client:
+        self.client = db.query(f"SELECT * FROM clients WHERE login = '{self.line_edit_login.text()}' and password = '{self.line_edit_password.text()}'")
+        if self.client:
             self.login_btn.setHidden(True)
-            self.win = Logined(client)
+            self.win = Logined(self.client)
             self.win.show()
             self.close()
             self.dialog.close()
         else:
             QtWidgets.QMessageBox.critical(self, "Ошибка", "Неверный логин или пароль")
+
+    def show_message(self):
+        QtWidgets.QMessageBox.critical(self, "Ошибка", "Сначала войдите или зарегистрируйтесь!")
+
+
+
+class RegUser(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # self.dialog.setHidden(True)
+        # self.dialog.close()
+        # self.dialog_reg = QtWidgets.QDialog()
+        self.resize(800, 600)
+        self.dialog_reg_lay = QtWidgets.QVBoxLayout()
+        self.setWindowTitle("Регистрация")
+        self.icon = QtGui.QIcon("icon.png")
+        self.setWindowIcon(self.icon)
+
+        self.le_name_reg = QtWidgets.QLineEdit()
+        self.le_name_reg.setPlaceholderText("Имя...")
+        self.le_surname_reg = QtWidgets.QLineEdit()
+        self.le_surname_reg.setPlaceholderText("Фамилия...")
+        self.le_email_reg = QtWidgets.QLineEdit()
+        self.le_email_reg.setPlaceholderText("Почта...")
+        email_val = QtGui.QRegularExpressionValidator(
+            QtCore.QRegularExpression("^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9_.-]+\.[a-zA-Z+]+$"), self.le_email_reg)
+        self.le_email_reg.setValidator(email_val)
+        self.le_phone_reg = QtWidgets.QLineEdit()
+        self.le_phone_reg.setPlaceholderText("Телефон...")
+        self.le_phone_reg.setInputMask("+7-999-999-99-99")
+        self.le_login_reg = QtWidgets.QLineEdit()
+        self.le_login_reg.setPlaceholderText("Логин...")
+        self.le_password_reg = QtWidgets.QLineEdit()
+        self.le_password_reg.setPlaceholderText("Пароль...")
+        self.lbl_for_photo = QtWidgets.QLabel()
+        self.lbl_for_photo.setHidden(True)
+        self.pix_photo = QtGui.QPixmap()
+
+        self.lay_info_reg = QtWidgets.QVBoxLayout()
+        self.lay_btn_reg = QtWidgets.QVBoxLayout()
+        self.lay_btn_reg.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        self.lbl_reg = QtWidgets.QLabel("Регистрация")
+        self.lbl_reg.setStyleSheet("border: none; font-size: 26px;")
+        self.lbl_reg.setMaximumHeight(50)
+
+        self.lay_info_reg.addWidget(self.lbl_reg)
+        self.lay_info_reg.addWidget(self.le_name_reg)
+        self.lay_info_reg.addWidget(self.le_surname_reg)
+        self.lay_info_reg.addWidget(self.le_email_reg)
+        self.lay_info_reg.addWidget(self.le_phone_reg)
+        self.lay_info_reg.addWidget(self.le_login_reg)
+        self.lay_info_reg.addWidget(self.le_password_reg)
+        self.lay_info_reg.addWidget(self.lbl_for_photo)
+
+        self.btn_load_image = QtWidgets.QPushButton("Загрузить изображение")
+        self.btn_load_image.setMaximumWidth(200)
+        self.btn_load_image.clicked.connect(self.load_image)
+        self.btn_load_image.setStyleSheet(
+            "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
+            "QPushButton:hover {background-color: #d3d3d3} "
+            "QPushButton:pressed {background-color: #f3f3f3}")
+        self.lay_info_reg.addWidget(self.btn_load_image)
+
+        self.btn_register = QtWidgets.QPushButton("Зарегистрироваться")
+        self.btn_register.clicked.connect(self.register)
+        self.btn_register.setStyleSheet(
+            "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
+            "QPushButton:hover {background-color: #d3d3d3} "
+            "QPushButton:pressed {background-color: #f3f3f3}")
+        self.btn_register.setMinimumWidth(500)
+
+
+        self.lay_btn_reg.addWidget(self.btn_register)
+
+        self.dialog_reg_lay.addLayout(self.lay_info_reg)
+        self.dialog_reg_lay.addLayout(self.lay_btn_reg)
+
+        self.setLayout(self.dialog_reg_lay)
+
+        self.setStyleSheet(
+            "QLineEdit{border: 1px solid #222; border-radius: 10px; font-size: 20px;}")
+
+    def load_image(self):
+        self.file_dialog = QtWidgets.QFileDialog.getOpenFileName(self, "Фото", '/', 'JPG File (*.jpg);; PNG File (*.png)')
+        self.url = self.file_dialog[0]
+        self.pix_photo.load(self.url)
+        self.lbl_for_photo.setPixmap(self.pix_photo.scaled(200, 200))
+        self.lbl_for_photo.setHidden(False)
+
+    def register(self):
+        unique = db.query(f"SELECT * FROM clients WHERE login = '{self.le_login_reg.text()}'")
+        # photo = self.convertToBinaryData(self.url)
+        if (len(self.le_name_reg.text()) > 0
+                and len(self.le_surname_reg.text()) > 0
+                and len(self.le_email_reg.text()) > 0
+                and len(self.le_phone_reg.text()) > 0
+                and len(self.le_login_reg.text()) > 0
+                and len(self.le_password_reg.text()) > 0) and not unique and len(self.le_phone_reg.text()) == 16 and self.le_email_reg.hasAcceptableInput():
+            db.query(f"INSERT INTO clients (name, surname, phone, email, login, password, photo) VALUES ('{self.le_name_reg.text()}', "
+                     f"'{self.le_surname_reg.text()}', "
+                     f"'{self.le_phone_reg.text()}', "
+                     f"'{self.le_email_reg.text()}', "
+                     f"'{self.le_login_reg.text()}', "
+                     f"'{self.le_password_reg.text()}', "
+                     f"'{self.convertToBinaryData(self.url)}')")
+        elif unique:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Такой пользователь уже существует!")
+        elif len(self.le_phone_reg.text()) != 16:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Неверно введен телефон")
+        elif not self.le_email_reg.hasAcceptableInput():
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Неверно введена почта")
+        else:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Не все поля заполнены!")
+
+    def convertToBinaryData(self, file_path):
+            with open(file_path, 'rb') as f:
+                data = f.read()
+            return data
 
 
 class Logined(QtWidgets.QWidget):
@@ -249,7 +388,7 @@ class Logined(QtWidgets.QWidget):
                 lay_for_cake = QtWidgets.QHBoxLayout(frame_scroll)
                 pix = QtGui.QPixmap()
                 pix.loadFromData(self.data_cakes[i]["photo"])
-                lbl.setPixmap(pix.scaled(100, 100))
+                lbl.setPixmap(pix.scaled(250, 250))
                 lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                 lay_for_cake.addWidget(lbl)
                 lay_for_cake.addWidget(QtWidgets.QLabel(self.data_cakes[i]["name"]))
@@ -332,7 +471,10 @@ class Logined(QtWidgets.QWidget):
         print("AAAAAA")
 
     def logout(self):
-        print("AAAAAA")
+        self.logout_now = MainWin()
+        self.logout_now.show()
+        self.close()
+
 
 
 
@@ -489,7 +631,7 @@ class Cabinet(QtWidgets.QWidget):
         self.btn_edit.setHidden(True)
 
     def commit_info(self):
-        if self.le_email.hasAcceptableInput():
+        if self.le_email.hasAcceptableInput() and len(self.le_phone.text()) == 16:
             self.le_name.setEnabled(False)
             self.le_surname.setEnabled(False)
             self.le_email.setEnabled(False)
@@ -498,7 +640,7 @@ class Cabinet(QtWidgets.QWidget):
             self.btn_edit.setHidden(False)
             db.query(f"UPDATE clients SET name = '{self.le_name.text()}', surname = '{self.le_surname.text()}', email = '{self.le_email.text()}', phone = '{self.le_phone.text()}' WHERE id = {self.user['id']}")
         else:
-            QtWidgets.QMessageBox.critical(self, "Ошибка", "Неверно введена почта!")
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Неверно введена почта или телефон!")
 
 
     def apply_change_pwd(self):
