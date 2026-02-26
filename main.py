@@ -1,4 +1,5 @@
 import datetime
+import os
 from fileinput import filename
 from logging import exception
 
@@ -16,7 +17,7 @@ class MainWin(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Магазин тортов")
-        self.icon = QtGui.QIcon("icon.png")
+        self.icon = QtGui.QIcon(resource_path("icon.ico"))
         self.setWindowIcon(self.icon)
         self.resize(1000, 800)
 
@@ -228,7 +229,7 @@ class RegUser(QtWidgets.QWidget):
         self.resize(800, 600)
         self.dialog_reg_lay = QtWidgets.QVBoxLayout()
         self.setWindowTitle("Регистрация")
-        self.icon = QtGui.QIcon("icon.png")
+        self.icon = QtGui.QIcon(resource_path("icon.ico"))
         self.setWindowIcon(self.icon)
 
         self.le_name_reg = QtWidgets.QLineEdit()
@@ -339,7 +340,7 @@ class Logined(QtWidgets.QWidget):
         super().__init__()
         self.setWindowTitle("Магазин тортов")
         print(client_data)
-        self.icon = QtGui.QIcon("icon.png")
+        self.icon = QtGui.QIcon(resource_path("icon.ico"))
         self.client = client_data
         self.setWindowIcon(self.icon)
         self.resize(1000, 800)
@@ -492,7 +493,7 @@ class Korz(QtWidgets.QWidget):
     def __init__(self, korz: dict, client_data: dict):
         super().__init__()
         self.setWindowTitle("Корзина")
-        self.icon = QtGui.QIcon("icon.png")
+        self.icon = QtGui.QIcon(resource_path("icon.ico"))
         self.setWindowIcon(self.icon)
         self.resize(1000, 800)
         self.korz = korz
@@ -614,7 +615,7 @@ class Cabinet(QtWidgets.QWidget):
         super().__init__()
         self.resize(700, 450)
         self.setWindowTitle("Профиль")
-        self.icon = QtGui.QIcon("icon.png")
+        self.icon = QtGui.QIcon(resource_path("icon.ico"))
         self.setWindowIcon(self.icon)
         self.user = user
 
@@ -788,6 +789,15 @@ class Cabinet(QtWidgets.QWidget):
 
     def cancel_changes(self):
         self.dialog.close()
+
+
+def resource_path(relative_path):
+    """Получить абсолютный путь к ресурсу"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
 if __name__ == '__main__':
