@@ -59,7 +59,7 @@ class MainWin(QtWidgets.QWidget):
                 lay_for_cake = QtWidgets.QHBoxLayout(frame_scroll)
                 pix = QtGui.QPixmap()
                 pix.loadFromData(self.data_cakes[i]["photo"])
-                lbl.setPixmap(pix.scaled(100, 100))
+                lbl.setPixmap(pix.scaled(250, 250))
                 lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                 lay_for_cake.addWidget(lbl)
                 lay_for_cake.addWidget(QtWidgets.QLabel(self.data_cakes[i]["name"]))
@@ -367,6 +367,7 @@ class Logined(QtWidgets.QWidget):
 
 
         self.layout.addWidget(self.menu)
+        self.korzina = {}
 
         if len(self.data_cakes) <= 5:
             page = QtWidgets.QFrame()
@@ -419,7 +420,7 @@ class Logined(QtWidgets.QWidget):
                     lay_for_cake = QtWidgets.QHBoxLayout()
                     pix = QtGui.QPixmap()
                     pix.loadFromData(self.data_cakes[i * 5 + j]["photo"])
-                    lbl.setPixmap(pix.scaled(100, 100))
+                    lbl.setPixmap(pix.scaled(250, 250))
                     lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                     lay_for_cake.addWidget(lbl)
                     btn_zakaz = QtWidgets.QPushButton("Заказать")
@@ -427,6 +428,9 @@ class Logined(QtWidgets.QWidget):
                         "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
                         "QPushButton:hover {background-color: #d3d3d3} "
                         "QPushButton:pressed {background-color: #f3f3f3}")
+                    btn_zakaz.setObjectName(f'cake {self.data_cakes[i * 5 + j]["id"]}')
+                    self.korzina[btn_zakaz.objectName()] = 0
+                    btn_zakaz.clicked.connect(self.add_cake)
                     lay_for_cake.addWidget(QtWidgets.QLabel(self.data_cakes[i * 5 + j]["name"]))
                     lay_for_cake.addWidget(btn_zakaz)
                     scroll_lay.addLayout(lay_for_cake)
@@ -453,9 +457,15 @@ class Logined(QtWidgets.QWidget):
 
         self.stack.setCurrentIndex(0)
 
+
+
         self.layout.addLayout(self.stack)
 
         self.setLayout(self.layout)
+
+    def add_cake(self):
+        self.korzina[self.sender().objectName()] += 1
+        print(self.korzina)
 
     def to_page_down(self):
         self.stack.setCurrentIndex(self.stack.currentIndex() - 1)
@@ -468,12 +478,132 @@ class Logined(QtWidgets.QWidget):
         self.cabinet.show()
 
     def korz(self):
-        print("AAAAAA")
+        self.win = Korz(self.korzina, *self.client)
+        self.win.show()
+        self.close()
 
     def logout(self):
         self.logout_now = MainWin()
         self.logout_now.show()
         self.close()
+
+
+class Korz(QtWidgets.QWidget):
+    def __init__(self, korz: dict, client_data: dict):
+        super().__init__()
+        self.setWindowTitle("Корзина")
+        self.icon = QtGui.QIcon("icon.png")
+        self.setWindowIcon(self.icon)
+        self.resize(1000, 800)
+        self.korz = korz
+        self.client_data = client_data
+
+
+        self.lay = QtWidgets.QVBoxLayout()
+
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scroll_frame = QtWidgets.QFrame()
+        self.scroll_lay = QtWidgets.QVBoxLayout(self.scroll_frame)
+        self.scroll.setWidget(self.scroll_frame)
+
+        self.non_neg = {k: v for k, v in self.korz.items() if v > 0}
+        print(*self.non_neg.keys())
+        # ng = [non_neg.keys()]
+
+        for i in self.non_neg.keys():
+            self.lay_for_cake = QtWidgets.QHBoxLayout()
+            self.cake_data = db.query(f"SELECT * FROM cakes WHERE id = '{i.split(' ')[-1]}'")
+            print(self.non_neg[i])
+            self.lbl = QtWidgets.QLabel()
+            self.pix_for_lbl = QtGui.QPixmap()
+            self.pix_for_lbl.loadFromData(self.cake_data[0]["photo"])
+            self.lbl_name = QtWidgets.QLabel(f'Название: {self.cake_data[0]["name"]}')
+            self.lbl_name.setMaximumHeight(50)
+            self.lbl_name.setStyleSheet("font-size:20px;")
+            self.lbl_quantity = QtWidgets.QLabel(f"Количество: {str(self.non_neg[i])}")
+            self.lbl_quantity.setStyleSheet("font-size:20px;")
+            self.lbl_quantity.setMaximumHeight(50)
+            self.lbl_quantity.setObjectName(i)
+            self.lay_cake = QtWidgets.QVBoxLayout()
+            self.lay_cake.addWidget(self.lbl_name)
+            self.lay_cake.addWidget(self.lbl_quantity)
+            self.btn_minus = QtWidgets.QPushButton("➖")
+            self.btn_minus.setObjectName(f"{i}")
+            self.btn_minus.setMaximumWidth(50)
+            self.btn_minus.clicked.connect(self.minus)
+            self.btn_minus.setStyleSheet(
+                    "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
+                    "QPushButton:hover {background-color: #d3d3d3} "
+                    "QPushButton:pressed {background-color: #f3f3f3}")
+            self.btn_plus = QtWidgets.QPushButton("➕")
+            self.btn_plus.setObjectName(f"{i}")
+            self.btn_plus.setMaximumWidth(50)
+            self.btn_plus.clicked.connect(self.plus)
+            self.btn_plus.setStyleSheet(
+                    "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
+                    "QPushButton:hover {background-color: #d3d3d3} "
+                    "QPushButton:pressed {background-color: #f3f3f3}")
+            self.lay_for_cake.addWidget(self.lbl)
+            self.lay_for_cake.addLayout(self.lay_cake)
+            self.lay_for_cake.addWidget(self.btn_minus)
+            self.lay_for_cake.addWidget(self.btn_plus)
+            self.lbl.setPixmap(self.pix_for_lbl.scaled(250, 250))
+            self.scroll_lay.addLayout(self.lay_for_cake)
+
+        self.lbl_main = QtWidgets.QLabel("Корзина")
+        self.lbl_main.setStyleSheet("font-size: 28px")
+        self.lay.addWidget(self.lbl_main)
+        self.lay.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.lay.addWidget(self.scroll)
+
+        self.btn_back_to_shop = QtWidgets.QPushButton("Назад")
+        self.btn_back_to_shop.clicked.connect(self.go_back)
+        self.btn_back_to_shop.setStyleSheet(
+                    "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
+                    "QPushButton:hover {background-color: #d3d3d3} "
+                    "QPushButton:pressed {background-color: #f3f3f3}")
+        self.btn_commit_shop = QtWidgets.QPushButton("Оплатить")
+        self.btn_commit_shop.setStyleSheet(
+                    "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
+                    "QPushButton:hover {background-color: #d3d3d3} "
+                    "QPushButton:pressed {background-color: #f3f3f3}")
+        self.btn_lay = QtWidgets.QHBoxLayout()
+        self.btn_lay.addWidget(self.btn_back_to_shop)
+        self.btn_lay.addWidget(self.btn_commit_shop)
+
+        self.lay.addLayout(self.btn_lay)
+
+        self.setLayout(self.lay)
+
+    def go_back(self):
+        self.win = Logined([self.client_data])
+        self.win.show()
+        self.close()
+
+    def minus(self):
+        # if self.korz[f"{self.sender().objectName().split(' ')[-1]}"] >= 0:
+        # print(self.korz[f"{self.sender().objectName().split('-')[-1]}"])
+        # self.korz[f"{self.sender().objectName().split('-')[-1]}"] -= 1
+            # self.lbl_quantity.setText(self.korz[f"{self.sender().objectName()}"])
+            # self.update()
+        # else:
+        # self.korz[f"{self.sender().objectName().split('-')[-1]}"] = 0
+        self.korz[f'{self.sender().objectName()}'] -= 1 if self.korz[f'{self.sender().objectName()}'] > 1 else self.korz[f'{self.sender().objectName()}'] == 0
+        print(self.korz)
+
+
+
+    def plus(self):
+        # self.lbl_quantity.setText(self.korz[f"{self.sender().objectName().split(' ')[-1]}"])
+        # self.update()
+        self.korz[f'{self.sender().objectName()}'] += 1
+
+        print(self.korz)
+        self.update()
+
 
 
 
