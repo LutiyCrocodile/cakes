@@ -307,19 +307,23 @@ class RegUser(QtWidgets.QWidget):
     def register(self):
         unique = db.query(f"SELECT * FROM clients WHERE login = '{self.le_login_reg.text()}'")
         # photo = self.convertToBinaryData(self.url)
-        if (len(self.le_name_reg.text()) > 0
+        if ((len(self.le_name_reg.text()) > 0
                 and len(self.le_surname_reg.text()) > 0
                 and len(self.le_email_reg.text()) > 0
                 and len(self.le_phone_reg.text()) > 0
                 and len(self.le_login_reg.text()) > 0
-                and len(self.le_password_reg.text()) > 0) and not unique and len(self.le_phone_reg.text()) == 16 and self.le_email_reg.hasAcceptableInput():
+                and len(self.le_password_reg.text()) > 0)
+                and not unique and len(self.le_phone_reg.text()) == 16
+                and self.le_email_reg.hasAcceptableInput()) and self.file_dialog:
             db.query(f"INSERT INTO clients (name, surname, phone, email, login, password, photo) VALUES ('{self.le_name_reg.text()}', "
                      f"'{self.le_surname_reg.text()}', "
                      f"'{self.le_phone_reg.text()}', "
                      f"'{self.le_email_reg.text()}', "
                      f"'{self.le_login_reg.text()}', "
                      f"'{self.le_password_reg.text()}', "
-                     f"'{self.convertToBinaryData(self.url)}')")
+                     f"'{QtGui.QImage(self.url)}')")
+            QtWidgets.QMessageBox.information(self, "Успех", "Вы зарегистрированы!")
+            self.close()
         elif unique:
             QtWidgets.QMessageBox.critical(self, "Ошибка", "Такой пользователь уже существует!")
         elif len(self.le_phone_reg.text()) != 16:
