@@ -30,5 +30,23 @@ class DB_Helper:
         except Exception as e:
             print(e)
 
+    def query_params(self, query, params):
+        try:
+            with pms.connect(
+                host=self.DB_HOST,
+                user=self.DB_USER,
+                password=self.DB_PASSWORD,
+                database=self.DB_NAME,
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=True
+            ) as self.conn:
+                self.curs = self.conn.cursor()
+                self.curs.execute(query, params)
+                self.res = self.curs.fetchall()
+                # print(*self.res, sep="\n")
+                return self.res
+        except Exception as e:
+            print(e)
+
 db = DB_Helper()
 

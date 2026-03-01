@@ -7,6 +7,8 @@ from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtCore import Qt, QIODevice
 from PyQt6.QtWidgets import QMessageBox
 
+from qt_material import list_themes, apply_stylesheet
+
 from db_helper import db
 
 import sys
@@ -17,6 +19,8 @@ class MainWin(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Магазин тортов")
+        themes = list_themes()
+        print(themes)
         self.icon = QtGui.QIcon(resource_path("icon.ico"))
         self.setWindowIcon(self.icon)
         self.resize(1000, 800)
@@ -57,6 +61,7 @@ class MainWin(QtWidgets.QWidget):
 
             for i, data in enumerate(self.data_cakes):
                 lbl = QtWidgets.QLabel()
+                lbl.setStyleSheet("border: 1px solid #222")
                 lay_for_cake = QtWidgets.QHBoxLayout(frame_scroll)
                 pix = QtGui.QPixmap()
                 pix.loadFromData(self.data_cakes[i]["photo"])
@@ -108,6 +113,7 @@ class MainWin(QtWidgets.QWidget):
 
                 for j, data in enumerate(self.data_cakes[5*i:5*i+5]):
                     lbl = QtWidgets.QLabel()
+                    lbl.setStyleSheet("border: 1px solid #222")
                     lay_for_cake = QtWidgets.QHBoxLayout()
                     pix = QtGui.QPixmap()
                     pix.loadFromData(self.data_cakes[i*5+j]["photo"])
@@ -315,13 +321,23 @@ class RegUser(QtWidgets.QWidget):
                 and len(self.le_password_reg.text()) > 0)
                 and not unique and len(self.le_phone_reg.text()) == 16
                 and self.le_email_reg.hasAcceptableInput()) and self.file_dialog:
-            db.query(f"INSERT INTO clients (name, surname, phone, email, login, password, photo) VALUES ('{self.le_name_reg.text()}', "
-                     f"'{self.le_surname_reg.text()}', "
-                     f"'{self.le_phone_reg.text()}', "
-                     f"'{self.le_email_reg.text()}', "
-                     f"'{self.le_login_reg.text()}', "
-                     f"'{self.le_password_reg.text()}', "
-                     f"'{QtGui.QImage(self.url)}')")
+            # db.query(f"INSERT INTO clients (name, surname, phone, email, login, password, photo) VALUES ('{self.le_name_reg.text()}', "
+            #          f"'{self.le_surname_reg.text()}', "
+            #          f"'{self.le_phone_reg.text()}', "
+            #          f"'{self.le_email_reg.text()}', "
+            #          f"'{self.le_login_reg.text()}', "
+            #          f"'{self.le_password_reg.text()}', "
+            #          f"'{QtGui.QImage(self.url)}')")
+            db.query_params("INSERT INTO clients (name, surname, phone, email, login, password, photo) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                            (self.le_name_reg.text(),
+                            self.le_phone_reg.text(),
+                            self.le_surname_reg.text(),
+                            self.le_email_reg.text(),
+                            self.le_login_reg.text(),
+                            self.le_password_reg.text(),
+                            self.convertToBinaryData(self.url)))
+
+
             QtWidgets.QMessageBox.information(self, "Успех", "Вы зарегистрированы!")
             self.close()
         elif unique:
@@ -363,9 +379,11 @@ class Logined(QtWidgets.QWidget):
         self.menu = QtWidgets.QMenuBar()
         self.menu_item = QtWidgets.QMenu("Личный кабинет")
         about = self.menu_item.addAction("О пользователе")
+        zakaz = self.menu_item.addAction("Заказ")
         korz = self.menu_item.addAction("Корзина")
         logout = self.menu_item.addAction("Выйти")
         about.triggered.connect(self.about)
+        zakaz.triggered.connect(self.zakaz)
         korz.triggered.connect(self.korz)
         logout.triggered.connect(self.logout)
         self.menu.addMenu(self.menu_item)
@@ -395,6 +413,7 @@ class Logined(QtWidgets.QWidget):
                 pix = QtGui.QPixmap()
                 pix.loadFromData(self.data_cakes[i]["photo"])
                 lbl.setPixmap(pix.scaled(250, 250))
+                lbl.setStyleSheet("border: 1px solid #222")
                 lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                 lay_for_cake.addWidget(lbl)
                 lay_for_cake.addWidget(QtWidgets.QLabel(self.data_cakes[i]["name"]))
@@ -425,6 +444,8 @@ class Logined(QtWidgets.QWidget):
                     lay_for_cake = QtWidgets.QHBoxLayout()
                     pix = QtGui.QPixmap()
                     pix.loadFromData(self.data_cakes[i * 5 + j]["photo"])
+                    # lbl_frame = QtWidgets.QFrame()
+                    lbl.setStyleSheet("border: 1px solid #222")
                     lbl.setPixmap(pix.scaled(250, 250))
                     lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                     lay_for_cake.addWidget(lbl)
@@ -492,6 +513,36 @@ class Logined(QtWidgets.QWidget):
         self.logout_now.show()
         self.close()
 
+    def zakaz(self):
+        self.zakaz_win = Zakaz(*self.client)
+        self.zakaz_win.show()
+        self.close()
+
+
+class Zakaz(QtWidgets.QWidget):
+    def __init__(self, client: dict):
+        super().__init__()
+        self.setWindowTitle("Заказ")
+        self.icon = QtGui.QIcon(resource_path("icon.ico"))
+        self.setWindowIcon(self.icon)
+        self.resize(1000, 800)
+
+        self.order_val_data = db.query("SELECT o.article, "
+                                       "o.time_of_order, "
+                                       "s.name_status, "
+                                       "c.name as client_name, "
+                                       "ca.name as cake_name, "
+                                       "ov.quantity "
+                                       "FROM orders o "
+                                       "join statuses s on s.id_status = o.status_id "
+                                       "join order_vals ov on ov.order_val_id = o.order_val_id "
+                                       "join clients c on c.id = ov.client_id "
+                                       f"join cakes ca on ca.id = ov.cake_id WHERE c.id = {client['id']}")
+        print(self.order_val_data)
+        self.lay = QtWidgets.QVBoxLayout()
+        for i in range(len(self.order_val_data)):
+            self.lay.addWidget(QtWidgets.QLabel(str(self.order_val_data[i])))
+        self.setLayout(self.lay)
 
 class Korz(QtWidgets.QWidget):
     def __init__(self, korz: dict, client_data: dict):
@@ -523,6 +574,9 @@ class Korz(QtWidgets.QWidget):
             self.cake_data = db.query(f"SELECT * FROM cakes WHERE id = '{i.split(' ')[-1]}'")
             print(self.non_neg[i])
             self.lbl = QtWidgets.QLabel()
+            self.lbl.setMaximumWidth(250)
+            self.lbl.setMaximumHeight(250)
+            self.lbl.setStyleSheet("border: 1px solid #000")
             self.pix_for_lbl = QtGui.QPixmap()
             self.pix_for_lbl.loadFromData(self.cake_data[0]["photo"])
             self.lbl_name = QtWidgets.QLabel(f'Название: {self.cake_data[0]["name"]}')
@@ -536,7 +590,7 @@ class Korz(QtWidgets.QWidget):
             self.lay_cake.addWidget(self.lbl_name)
             self.lay_cake.addWidget(self.lbl_quantity)
             self.btn_minus = QtWidgets.QPushButton("➖")
-            self.btn_minus.setObjectName(f"{i}")
+            self.btn_minus.setObjectName(f"button_minus_{i}")
             self.btn_minus.setMaximumWidth(50)
             self.btn_minus.clicked.connect(self.minus)
             self.btn_minus.setStyleSheet(
@@ -544,7 +598,7 @@ class Korz(QtWidgets.QWidget):
                     "QPushButton:hover {background-color: #d3d3d3} "
                     "QPushButton:pressed {background-color: #f3f3f3}")
             self.btn_plus = QtWidgets.QPushButton("➕")
-            self.btn_plus.setObjectName(f"{i}")
+            self.btn_plus.setObjectName(f"button_plus_{i}")
             self.btn_plus.setMaximumWidth(50)
             self.btn_plus.clicked.connect(self.plus)
             self.btn_plus.setStyleSheet(
@@ -570,7 +624,8 @@ class Korz(QtWidgets.QWidget):
                     "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
                     "QPushButton:hover {background-color: #d3d3d3} "
                     "QPushButton:pressed {background-color: #f3f3f3}")
-        self.btn_commit_shop = QtWidgets.QPushButton("Оплатить")
+        self.btn_commit_shop = QtWidgets.QPushButton("Перейти к оформлению")
+        self.btn_commit_shop.clicked.connect(self.offord)
         self.btn_commit_shop.setStyleSheet(
                     "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
                     "QPushButton:hover {background-color: #d3d3d3} "
@@ -583,31 +638,43 @@ class Korz(QtWidgets.QWidget):
 
         self.setLayout(self.lay)
 
+    def offord(self):
+        for k, v in self.non_neg.items():
+            cake_id = k.split(" ")[-1]
+            client_id = self.client_data["id"]
+            quantity = v
+            # print(order_val_id)
+            db.query(f"INSERT INTO order_vals (client_id, cake_id, quantity) VALUES ({client_id}, {cake_id}, {quantity})")
+            order_val_id = db.query(f"SELECT order_val_id FROM order_vals WHERE client_id = {client_id} and cake_id = {cake_id} and quantity = {quantity} LIMIT 1")
+            print(order_val_id)
+            db.query(f"INSERT INTO orders (article, time_of_order, status_id, order_val_id) VALUES ('iii', '{datetime.datetime.now().strftime('%Y-%m-%d, %H:%M:%S')}', '1', '{order_val_id[0]['order_val_id']}')")
+        print(self.korz)
+        print(self.non_neg)
+        print(self.client_data["id"])
+        print(self.client_data["name"])
+        # db.query("INSERT INTO ")
+
     def go_back(self):
         self.win = Logined([self.client_data])
         self.win.show()
         self.close()
 
     def minus(self):
-        # if self.korz[f"{self.sender().objectName().split(' ')[-1]}"] >= 0:
-        # print(self.korz[f"{self.sender().objectName().split('-')[-1]}"])
-        # self.korz[f"{self.sender().objectName().split('-')[-1]}"] -= 1
-            # self.lbl_quantity.setText(self.korz[f"{self.sender().objectName()}"])
-            # self.update()
-        # else:
-        # self.korz[f"{self.sender().objectName().split('-')[-1]}"] = 0
-        self.korz[f'{self.sender().objectName()}'] -= 1 if self.korz[f'{self.sender().objectName()}'] > 1 else self.korz[f'{self.sender().objectName()}'] == 0
+        number = str(self.sender().objectName().split("_")[-1])
+        print(number)
+        self.korz[f'{number}'] -= 1 if self.korz[f'{number}'] > 1 else self.korz[f'{number}'] == 0
+        self.findChild(QtWidgets.QLabel, f"{number}").setText(f"Количество: {self.korz[number]}")
         print(self.korz)
+        print(self.sender().objectName())
 
 
 
     def plus(self):
-        # self.lbl_quantity.setText(self.korz[f"{self.sender().objectName().split(' ')[-1]}"])
-        # self.update()
-        self.korz[f'{self.sender().objectName()}'] += 1
-
+        number = str(self.sender().objectName().split("_")[-1])
+        self.korz[f'{number}'] += 1
+        self.findChild(QtWidgets.QLabel, f"{number}").setText(f"Количество: {self.korz[number]}")
+        print(self.sender().objectName())
         print(self.korz)
-        self.update()
 
 
 
@@ -633,10 +700,10 @@ class Cabinet(QtWidgets.QWidget):
         self.client_lay_5 = QtWidgets.QHBoxLayout()
 
         self.lbl = QtWidgets.QLabel()
-        self.lbl.setStyleSheet("border: 4px solid #222; border-radius:10px;")
+        # self.lbl.setStyleSheet("border: 4px solid #222; border-radius:10px;")
         self.pix = QtGui.QPixmap()
         self.pix.loadFromData(user["photo"])
-        self.lbl.setPixmap(self.pix.scaled(350, 200))
+        self.lbl.setPixmap(self.pix.scaled(400, 450))
 
         self.lbl_photo = QtWidgets.QLabel("Фото: ")
         self.lbl_name = QtWidgets.QLabel("Имя: ")
@@ -704,7 +771,6 @@ class Cabinet(QtWidgets.QWidget):
         self.dialog.setLayout(self.dialog_lay)
 
         self.lbl_change = QtWidgets.QLabel("Изменение пароля")
-        # self.dialog.setStyleSheet("font-size: 20px;")
 
         self.lay_change_pwd_1 = QtWidgets.QHBoxLayout()
         self.lay_change_pwd_2 = QtWidgets.QHBoxLayout()
@@ -806,6 +872,7 @@ def resource_path(relative_path):
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
+    apply_stylesheet(app, 'light_lightgreen_500.xml')
     win = MainWin()
     win.show()
     sys.exit(app.exec())
