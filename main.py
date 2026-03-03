@@ -118,15 +118,18 @@ class MainWin(QtWidgets.QWidget):
                     pix = QtGui.QPixmap()
                     pix.loadFromData(self.data_cakes[i*5+j]["photo"])
                     lbl.setPixmap(pix.scaled(250, 250))
-                    lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+                    lbl.setMaximumWidth(250)
                     lay_for_cake.addWidget(lbl)
                     btn_zakaz = QtWidgets.QPushButton("Заказать")
+                    btn_lay_zakaz = QtWidgets.QHBoxLayout()
+                    btn_lay_zakaz.addWidget(btn_zakaz)
                     btn_zakaz.clicked.connect(self.show_message)
                     btn_zakaz.setStyleSheet("QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
                                             "QPushButton:hover {background-color: #d3d3d3} "
                                             "QPushButton:pressed {background-color: #f3f3f3}")
                     lay_for_cake.addWidget(QtWidgets.QLabel(self.data_cakes[i*5+j]["name"]))
-                    lay_for_cake.addWidget(btn_zakaz)
+                    btn_lay_zakaz.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+                    lay_for_cake.addLayout(btn_lay_zakaz)
                     scroll_lay.addLayout(lay_for_cake)
 
                 btn_back = QtWidgets.QPushButton("Назад")
@@ -413,6 +416,7 @@ class Logined(QtWidgets.QWidget):
                 pix = QtGui.QPixmap()
                 pix.loadFromData(self.data_cakes[i]["photo"])
                 lbl.setPixmap(pix.scaled(250, 250))
+                lbl.setMaximumWidth(250)
                 lbl.setStyleSheet("border: 1px solid #222")
                 lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
                 lay_for_cake.addWidget(lbl)
@@ -447,9 +451,12 @@ class Logined(QtWidgets.QWidget):
                     # lbl_frame = QtWidgets.QFrame()
                     lbl.setStyleSheet("border: 1px solid #222")
                     lbl.setPixmap(pix.scaled(250, 250))
-                    lay_for_cake.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+                    lbl.setMaximumWidth(250)
                     lay_for_cake.addWidget(lbl)
+                    btn_lay_zakaz = QtWidgets.QHBoxLayout()
+                    btn_lay_zakaz.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
                     btn_zakaz = QtWidgets.QPushButton("Заказать")
+                    btn_lay_zakaz.addWidget(btn_zakaz)
                     btn_zakaz.setStyleSheet(
                         "QPushButton { border-radius: 10px; background-color: #dfdfdf; padding: 5px; border: 1px solid #333;} "
                         "QPushButton:hover {background-color: #d3d3d3} "
@@ -458,7 +465,7 @@ class Logined(QtWidgets.QWidget):
                     self.korzina[btn_zakaz.objectName()] = 0
                     btn_zakaz.clicked.connect(self.add_cake)
                     lay_for_cake.addWidget(QtWidgets.QLabel(self.data_cakes[i * 5 + j]["name"]))
-                    lay_for_cake.addWidget(btn_zakaz)
+                    lay_for_cake.addLayout(btn_lay_zakaz)
                     scroll_lay.addLayout(lay_for_cake)
 
                 btn_back = QtWidgets.QPushButton("Назад")
@@ -527,21 +534,40 @@ class Zakaz(QtWidgets.QWidget):
         self.setWindowIcon(self.icon)
         self.resize(1000, 800)
 
-        self.order_val_data = db.query("SELECT o.article, "
-                                       "o.time_of_order, "
-                                       "s.name_status, "
-                                       "c.name as client_name, "
-                                       "ca.name as cake_name, "
-                                       "ov.quantity "
-                                       "FROM orders o "
-                                       "join statuses s on s.id_status = o.status_id "
-                                       "join order_vals ov on ov.order_val_id = o.order_val_id "
-                                       "join clients c on c.id = ov.client_id "
-                                       f"join cakes ca on ca.id = ov.cake_id WHERE c.id = {client['id']}")
+        self.order_val_data = db.query(f"SELECT o.article, o.time_of_order, s.name_status, a.name_address "
+                                       f"FROM orders o "
+                                       f"join statuses s on s.id_status = o.status_id "
+                                       f"join addresses a on a.id_address = o.address_id "
+                                       f"WHERE client_id = {client['id']}")
         print(self.order_val_data)
         self.lay = QtWidgets.QVBoxLayout()
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll_frame = QtWidgets.QFrame()
+        self.scroll_lay = QtWidgets.QVBoxLayout(self.scroll_frame)
+        self.scroll.setWidget(self.scroll_frame)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scroll_lay.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.lay.addWidget(self.scroll)
+        self.scroll.setMaximumHeight(400)
+        self.scroll.setMinimumWidth(600)
         for i in range(len(self.order_val_data)):
-            self.lay.addWidget(QtWidgets.QLabel(str(self.order_val_data[i])))
+            self.order_frame = QtWidgets.QFrame()
+            self.order_frame.setMaximumHeight(100)
+            self.order_frame.setFrameStyle(QtWidgets.QFrame.Shape.Box)
+            self.order_frame.setStyleSheet("border-radius: 10px; background-color: #dfdfdf")
+            self.order_lay = QtWidgets.QHBoxLayout(self.order_frame)
+            self.lbl_article = QtWidgets.QLabel(f"Заказ: {self.order_val_data[i]['article']}")
+            self.lbl_time = QtWidgets.QLabel(f"Время заказа: {self.order_val_data[i]['time_of_order']}")
+            # self.lbl_quantity = QtWidgets.QLabel(f"Количество позиций: {len(self.order_val_data[i])}")
+            self.lbl_status = QtWidgets.QLabel(f"Статус: {self.order_val_data[i]['name_status']}")
+            self.lbl_address = QtWidgets.QLabel(f"Адрес: {self.order_val_data[i]['name_address']}")
+            print(self.lbl_article.text())
+            self.order_lay.addWidget(self.lbl_article)
+            self.order_lay.addWidget(self.lbl_time)
+            self.order_lay.addWidget(self.lbl_address)
+            self.order_lay.addWidget(self.lbl_status)
+            self.scroll_lay.addWidget(self.order_frame)
         self.setLayout(self.lay)
 
 class Korz(QtWidgets.QWidget):
@@ -703,7 +729,8 @@ class Cabinet(QtWidgets.QWidget):
         # self.lbl.setStyleSheet("border: 4px solid #222; border-radius:10px;")
         self.pix = QtGui.QPixmap()
         self.pix.loadFromData(user["photo"])
-        self.lbl.setPixmap(self.pix.scaled(400, 450))
+        self.lbl.setPixmap(self.pix.scaled(250, 250))
+        self.lbl.setMaximumWidth(250)
 
         self.lbl_photo = QtWidgets.QLabel("Фото: ")
         self.lbl_name = QtWidgets.QLabel("Имя: ")
